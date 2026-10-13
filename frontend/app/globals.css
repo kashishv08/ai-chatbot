@@ -1,0 +1,334 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap");
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #eef1eb;
+  --surface: #fbfcf8;
+  --surface-raised: #f5f7f1;
+  --border: #dce3db;
+  --muted: #68766f;
+  --foreground: #20312e;
+  --accent: #186c5e;
+  --font-body: "DM Sans", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --font-mono: "DM Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 50% -32%, rgba(255, 255, 255, 0.92), transparent 58%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01" on;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  color: #f9faf5;
+  background: #186c5e;
+}
+
+/* The original utility classes are retained to keep the interaction layer
+   untouched; these selectors give the console its warm, legible lab palette. */
+main {
+  min-height: 100dvh;
+  color: #253632;
+}
+
+main > header {
+  border-color: #dfe5dd !important;
+  background: rgba(246, 248, 243, 0.88) !important;
+  box-shadow: 0 1px 0 rgba(36, 63, 53, 0.035);
+}
+
+main > header h1 {
+  color: #20312e !important;
+  font-family: var(--font-display);
+  letter-spacing: -0.035em !important;
+}
+
+main > header [class*="text-slate-"] {
+  color: #708078 !important;
+}
+
+main > header [class*="bg-[#0d1117]"] {
+  background: rgba(246, 248, 243, 0.9) !important;
+}
+
+main > div > section {
+  border-color: #dce4dc !important;
+  background: #fbfcf8 !important;
+  box-shadow: 0 18px 54px rgba(46, 69, 58, 0.075), 0 2px 5px rgba(46, 69, 58, 0.025) !important;
+}
+
+main > div > section > div:first-child {
+  border-color: #e5eae3 !important;
+}
+
+main [class*="bg-[#101720]"],
+main [class*="bg-[#0c1219]"] {
+  background-color: #f5f7f2 !important;
+}
+
+main [class*="bg-[#151e28]"] {
+  background-color: #f8faf6 !important;
+}
+
+main [class*="bg-[#1b344b]"] {
+  background-color: #e5f1eb !important;
+  border-color: #d1e5d9 !important;
+}
+
+main [class*="bg-[#202a35]"] {
+  background-color: #fffefa !important;
+  color: #31534b !important;
+}
+
+main [class*="border-white/"],
+main [class*="border-white/["] {
+  border-color: #dfe6df !important;
+}
+
+main [class*="bg-white/["] {
+  background-color: rgba(57, 84, 69, 0.035) !important;
+}
+
+main [class*="text-slate-100"],
+main [class*="text-slate-200"],
+main [class*="text-slate-300"] {
+  color: #243631 !important;
+}
+
+main [class*="text-slate-400"] {
+  color: #64756d !important;
+}
+
+main [class*="text-slate-500"] {
+  color: #77867f !important;
+}
+
+main [class*="text-slate-600"] {
+  color: #87948d !important;
+}
+
+main [class*="text-sky-"] {
+  color: #276f60 !important;
+}
+
+main [class*="border-sky-"] {
+  border-color: #cfe3d8 !important;
+}
+
+main [class*="bg-sky-300"] {
+  background-color: #176b5d !important;
+  color: #f8faf6 !important;
+}
+
+main [class*="hover:bg-sky-200"]:hover {
+  background-color: #0e5d50 !important;
+}
+
+main [class*="focus-within:border-sky-"],
+main [class*="focus:border-sky-"]:focus {
+  border-color: #83b9a8 !important;
+}
+
+main [class*="focus:ring-sky-"]:focus,
+main [class*="focus-within:ring-sky-"] {
+  --tw-ring-color: rgba(36, 117, 94, 0.1) !important;
+}
+
+main [class*="bg-[#0b1016]"] {
+  background-color: #e9eee8 !important;
+}
+
+main aside > section,
+main aside > div {
+  border-color: #dce4dc !important;
+  background-color: rgba(251, 252, 248, 0.88) !important;
+  box-shadow: 0 8px 24px rgba(46, 69, 58, 0.035);
+}
+
+main aside button:hover {
+  background-color: rgba(50, 84, 69, 0.045);
+}
+
+main aside textarea {
+  border-color: #dbe4dc !important;
+  background: #f5f8f3 !important;
+  color: #253632 !important;
+}
+
+main aside textarea::placeholder,
+main textarea::placeholder {
+  color: #9aa69f !important;
+}
+
+main aside [class*="text-amber-"] {
+  color: #9a6a2c !important;
+}
+
+main aside [class*="border-amber-"] {
+  border-color: #eadfc9 !important;
+}
+
+main aside [class*="bg-amber-"] {
+  background-color: rgba(174, 126, 54, 0.07) !important;
+}
+
+main > div > section [class*="bg-amber-300"] {
+  background-color: #fff6e7 !important;
+  border-color: #eddcbf !important;
+}
+
+main > div > section [class*="text-amber-100"] {
+  color: #80551e !important;
+}
+
+main > div > section [class*="text-amber-200"] {
+  color: #a27531 !important;
+}
+
+main aside [class*="text-emerald-"] {
+  color: #27715d !important;
+}
+
+main aside [class*="border-emerald-"] {
+  border-color: #cde5d9 !important;
+}
+
+main aside [class*="bg-emerald-"] {
+  background-color: rgba(48, 128, 91, 0.08) !important;
+}
+
+main [class*="text-rose-"] {
+  color: #a94b48 !important;
+}
+
+main [class*="border-rose-"] {
+  border-color: #edd3cf !important;
+}
+
+main [class*="bg-rose-"] {
+  background-color: rgba(186, 75, 66, 0.065) !important;
+}
+
+main [class*="font-mono"],
+main code {
+  font-family: var(--font-mono);
+}
+
+main h2 {
+  font-family: var(--font-display);
+}
+
+main button {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+main button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+main textarea:focus-visible,
+main button:focus-visible {
+  outline: 2px solid rgba(33, 116, 92, 0.56);
+  outline-offset: 2px;
+}
+
+.subtle-scrollbar {
+  scrollbar-color: #c3d0c5 transparent;
+  scrollbar-width: thin;
+}
+
+.subtle-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.subtle-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #c3d0c5;
+  background-clip: padding-box;
+}
+
+.loading-dots span {
+  background: #4b8b77;
+  animation: pulse-dot 900ms ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.loading-dots span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes pulse-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.38;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 767px) {
+  main > div {
+    gap: 14px !important;
+    padding-top: 14px !important;
+    padding-bottom: 14px !important;
+  }
+
+  main > div > section {
+    min-height: max(620px, calc(100dvh - 102px)) !important;
+    border-radius: 15px !important;
+  }
+
+  main > div > section > div:last-child {
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+  }
+
+  main aside {
+    padding-bottom: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

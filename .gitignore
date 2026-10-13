@@ -1,0 +1,26 @@
+# Environment & secret files across all directories
+.env
+.env*
+*.env
+**/.env
+**/.env*
+!**/.env.example
+
+# Python virtual environment & cache
+venv/
+backend/venv/
+__pycache__/
+backend/__pycache__/
+*.pyc
+.pytest_cache/
+backend/.pytest_cache/
+
+# Node & Next.js build artifacts
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+tsconfig.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
