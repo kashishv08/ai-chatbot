@@ -208,8 +208,9 @@ def debug_fail_key(index: int, state: str) -> dict:
     invalid api_key, causing immediate authentication failures that trigger
     failover to the next available key.
     """
-    if index < 1 or index > 3:
-        raise HTTPException(status_code=400, detail="Key index must be 1, 2, or 3.")
+    max_keys = max(len(settings.GEMINI_API_KEYS), 1)
+    if index < 1 or index > max_keys:
+        raise HTTPException(status_code=400, detail=f"Key index must be between 1 and {max_keys}.")
     if state not in ("on", "off"):
         raise HTTPException(status_code=400, detail="State must be 'on' or 'off'.")
 
@@ -232,12 +233,13 @@ def debug_status() -> DebugStatusResponse:
     """Return which keys are simulated-down and per-key usage counts."""
     down = get_simulated_down()
     counts = get_key_usage_counts()
+    num_keys = max(len(settings.GEMINI_API_KEYS), 1)
     key_states = [
         DebugKeyState(
             key_index=i,
             simulated_down=i in down,
             usage_count=counts.get(i, 0),
         )
-        for i in range(1, 4)
+        for i in range(1, num_keys + 1)
     ]
     return DebugStatusResponse(simulated_down=down, key_states=key_states)

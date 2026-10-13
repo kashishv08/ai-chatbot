@@ -22,17 +22,16 @@ class Settings:
     MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini/gemini-3.5-flash")
     """Gemini model to use via LiteLLM, e.g. gemini/gemini-3.5-flash."""
 
-    # Collect whichever Gemini API keys are present in the environment.
+    # Collect whichever Gemini API keys are present in the environment (Key 1 & Key 2).
     GEMINI_API_KEYS: List[str] = [
         v.strip()
         for v in (
             os.getenv("GEMINI_API_KEY_1"),
             os.getenv("GEMINI_API_KEY_2"),
-            os.getenv("GEMINI_API_KEY_3"),
         )
         if v and v.strip() and not v.strip().lower().startswith("your_")
     ]
-    """List of non-empty, non-placeholder Gemini API keys loaded from GEMINI_API_KEY_1/2/3."""
+    """List of non-empty, non-placeholder Gemini API keys loaded from GEMINI_API_KEY_1/2."""
 
     MOCK_RESPONSE: str | None = os.getenv("MOCK_RESPONSE")
     """Optional mock response string for tests / mock mode."""

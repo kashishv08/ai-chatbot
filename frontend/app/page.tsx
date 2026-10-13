@@ -668,10 +668,13 @@ export default function ChatPage() {
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              {[1, 2, 3].map((keyNum) => {
-                const info = debugStatus?.key_states.find((k) => k.key_index === keyNum);
-                const isDown = info?.simulated_down ?? false;
-                const usageCount = info?.usage_count ?? 0;
+              {(debugStatus?.key_states && debugStatus.key_states.length > 0
+                ? debugStatus.key_states
+                : [{ key_index: 1, simulated_down: false, usage_count: 0 }, { key_index: 2, simulated_down: false, usage_count: 0 }]
+              ).map((info) => {
+                const keyNum = info.key_index;
+                const isDown = info.simulated_down;
+                const usageCount = info.usage_count;
                 const busy = debugPending === keyNum;
                 return (
                   <button

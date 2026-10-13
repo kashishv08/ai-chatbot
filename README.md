@@ -8,8 +8,8 @@ A production-grade, resilient conversational AI web application designed to with
 
 - **Backend**: Python 3.11+, FastAPI, LiteLLM (`litellm.Router`), Pydantic v2, Uvicorn
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
-- **AI Provider**: Google Gemini (`gemini/gemini-2.0-flash` by default, configurable via `MODEL_NAME`)
-- **Key Failover Pool**: Automatic multi-key rotation and cooldown using `litellm.Router` across `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2`, and `GEMINI_API_KEY_3`.
+- **AI Provider**: Google Gemini (`gemini/gemini-3.5-flash` by default, configurable via `MODEL_NAME`)
+- **Key Failover Pool**: Automatic multi-key rotation and cooldown using `litellm.Router` across `GEMINI_API_KEY_1` and `GEMINI_API_KEY_2`.
 - **Response Caching**: LiteLLM dual caching with configurable TTL (`CACHE_TTL_SECONDS`), dramatically reducing latency and token costs on repeated identical prompts.
 - **Failover Simulation & Debug Tools**: Real-time simulated outage toggle for individual API keys (`/debug/fail-key/{index}/{on|off}`) to test and demonstrate graceful degradation live in the browser.
 
@@ -71,8 +71,7 @@ Edit `backend/.env`:
 ```env
 GEMINI_API_KEY_1=your_gemini_api_key_1
 GEMINI_API_KEY_2=your_gemini_api_key_2
-GEMINI_API_KEY_3=your_gemini_api_key_3
-MODEL_NAME=gemini/gemini-2.0-flash
+MODEL_NAME=gemini/gemini-3.5-flash
 ALLOWED_ORIGINS=*
 CACHE_TTL_SECONDS=3600
 ```

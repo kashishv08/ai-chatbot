@@ -22,7 +22,6 @@ import time
 # ---------------------------------------------------------------------------
 os.environ.setdefault("GEMINI_API_KEY_1", "test-key-1")
 os.environ.setdefault("GEMINI_API_KEY_2", "test-key-2")
-os.environ.setdefault("GEMINI_API_KEY_3", "test-key-3")
 os.environ.setdefault("MODEL_NAME", "openai/gpt-3.5-turbo")
 os.environ.setdefault("CACHE_TTL_SECONDS", "3600")
 os.environ.setdefault("MOCK_RESPONSE", "Test reply from mock LLM.")
@@ -89,7 +88,7 @@ class TestHealthEndpoint:
         assert r.status_code == 200
         body = r.json()
         assert body["status"] == "ok"
-        assert body["keys_loaded"] == 3
+        assert body["keys_loaded"] == 2
         assert body["cache_enabled"] is True
 
 
@@ -121,7 +120,7 @@ class TestChatEndpoint:
         assert "token_usage" in meta
         assert "input_tokens" in meta["token_usage"]
         assert "output_tokens" in meta["token_usage"]
-        assert meta["key_index_used"] in (1, 2, 3)
+        assert meta["key_index_used"] in (1, 2)
 
     def test_empty_message_rejected(self, client: TestClient):
         r = client.post("/chat", json={"session_id": "sess-empty", "message": ""})
@@ -231,7 +230,7 @@ class TestDebugEndpoints:
         assert r.status_code == 200
         body = r.json()
         assert body["simulated_down"] == []
-        assert len(body["key_states"]) == 3
+        assert len(body["key_states"]) == 2
 
     def test_debug_fail_key_on(self, client: TestClient):
         r = client.post("/debug/fail-key/1/on")
@@ -277,7 +276,6 @@ class TestKeyFailoverSimulation:
         """
         client.post("/debug/fail-key/1/on")
         client.post("/debug/fail-key/2/on")
-        client.post("/debug/fail-key/3/on")
 
         # Clear cache so no cache hit can rescue us
         litellm.cache = Cache(type="local")
@@ -296,7 +294,6 @@ class TestKeyFailoverSimulation:
         """
         client.post("/debug/fail-key/1/on")
         client.post("/debug/fail-key/2/on")
-        client.post("/debug/fail-key/3/on")
 
         litellm.cache = Cache(type="local")
 
