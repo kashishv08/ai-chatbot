@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chat Console",
-  description: "A chat interface for testing live inference and cached responses.",
+  title: "Resilient AI Chatbot",
+  description: "Multi-turn AI chatbot with LiteLLM key failover and response caching.",
 };
 
 export default function RootLayout({
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" style={{ height: "100%", overflow: "hidden" }}>
+      <body style={{ height: "100%", overflow: "hidden" }}>{children}</body>
     </html>
   );
 }

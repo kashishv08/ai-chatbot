@@ -8,7 +8,6 @@ import {
   CircleHelp,
   Clock3,
   Code2,
-  Command,
   Database,
   Key,
   LoaderCircle,
@@ -49,19 +48,19 @@ type MessageMetadata = {
 
 type ChatMessage =
   | {
-      id: string;
-      role: "user";
-      content: string;
-    }
+    id: string;
+    role: "user";
+    content: string;
+  }
   | {
-      id: string;
-      role: "assistant";
-      content: string;
-      status: "loading" | "success" | "error";
-      metadata?: MessageMetadata;
-      error?: string;
-      retryMessageId?: string;
-    };
+    id: string;
+    role: "assistant";
+    content: string;
+    status: "loading" | "success" | "error";
+    metadata?: MessageMetadata;
+    error?: string;
+    retryMessageId?: string;
+  };
 
 type ChatResponse = {
   reply?: string | null;
@@ -125,16 +124,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong. Please try again.";
 }
 
-function getResolutionSource(source?: string): string {
+function getResolutionSource(source?: string): "LLM_CACHE" | "LIVE_INFERENCE" {
   return source === "LLM_CACHE" ? "LLM_CACHE" : "LIVE_INFERENCE";
 }
 
 function saveMessages(messages: ChatMessage[]): void {
-  try {
-    localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
-  } catch {
-    // Storage might be blocked
-  }
+  try { localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages)); } catch { /* */ }
 }
 
 function loadMessages(): ChatMessage[] {
@@ -142,7 +137,6 @@ function loadMessages(): ChatMessage[] {
     const raw = localStorage.getItem(MESSAGES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatMessage[];
-    // Filter out any messages stuck in "loading" state (from a previous crash)
     return parsed.map((m) =>
       m.role === "assistant" && m.status === "loading"
         ? { ...m, status: "error" as const, error: "Session interrupted. Please retry." }
@@ -166,6 +160,7 @@ export default function ChatPage() {
   const [debugStatus, setDebugStatus] = useState<DebugStatus | null>(null);
   const [debugPending, setDebugPending] = useState<number | null>(null);
   const [debugError, setDebugError] = useState("");
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -179,37 +174,31 @@ export default function ChatPage() {
   const coldStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiBaseUrl = getApiBaseUrl();
 
-  // ---- Init session + restore history ----
+  // Init session + restore history
   useEffect(() => {
     let id = "";
     try { id = localStorage.getItem(SESSION_ID_KEY) || ""; } catch { /* */ }
     if (!id) id = createUuid();
     setSessionId(id);
     try { localStorage.setItem(SESSION_ID_KEY, id); } catch { /* */ }
-
-    // Restore messages from localStorage (includes per-message metadata)
     const saved = loadMessages();
-    if (saved.length > 0) {
-      setMessages(saved);
-    }
+    if (saved.length > 0) setMessages(saved);
   }, []);
 
-  // ---- Persist messages whenever they change ----
+  // Persist messages
   useEffect(() => {
     if (messages.length > 0) saveMessages(messages);
   }, [messages]);
 
-  // ---- Auto-scroll on new messages ----
+  // Auto-scroll
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  // ---- Fetch debug status when panel opens ----
+  // Fetch debug status when panel opens
   useEffect(() => {
-    if (debugOpen && apiBaseUrl) {
-      void fetchDebugStatus();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (debugOpen && apiBaseUrl) void fetchDebugStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debugOpen, apiBaseUrl]);
 
   const fetchDebugStatus = useCallback(async () => {
@@ -220,7 +209,7 @@ export default function ChatPage() {
     } catch { /* non-critical */ }
   }, [apiBaseUrl]);
 
-  // ---- Core send function ----
+  // Core send function
   const sendRequest = useCallback(
     async (message: string, assistantMessageId: string) => {
       setIsSending(true);
@@ -234,18 +223,11 @@ export default function ChatPage() {
         )
       );
 
-      // Cold-start notice after 5 seconds
-      coldStartTimerRef.current = setTimeout(() => {
-        setColdStartNotice(true);
-      }, COLD_START_THRESHOLD_MS);
+      coldStartTimerRef.current = setTimeout(() => setColdStartNotice(true), COLD_START_THRESHOLD_MS);
 
       try {
-        if (!apiBaseUrl) {
-          throw new Error("Set NEXT_PUBLIC_API_BASE_URL in frontend/.env to connect to your API.");
-        }
-        if (!sessionId) {
-          throw new Error("Session is still initialising. Please try again.");
-        }
+        if (!apiBaseUrl) throw new Error("Set NEXT_PUBLIC_API_BASE_URL in frontend/.env to connect to your API.");
+        if (!sessionId) throw new Error("Session is still initialising. Please try again.");
 
         const response = await fetch(`${apiBaseUrl}/chat`, {
           method: "POST",
@@ -255,15 +237,9 @@ export default function ChatPage() {
 
         const payload = (await response.json().catch(() => null)) as ChatResponse | null;
 
-        if (!response.ok) {
-          throw new Error(payload?.error || `Request failed (${response.status}).`);
-        }
-        if (payload?.error) {
-          throw new Error(payload.error);
-        }
-        if (typeof payload?.reply !== "string") {
-          throw new Error("The API returned no reply. Please retry.");
-        }
+        if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
+        if (payload?.error) throw new Error(payload.error);
+        if (typeof payload?.reply !== "string") throw new Error("The API returned no reply. Please retry.");
 
         setMessages((cur) =>
           cur.map((m) =>
@@ -343,10 +319,7 @@ export default function ChatPage() {
   }
 
   async function toggleFailKey(keyIndex: number, currentlyDown: boolean) {
-    if (!apiBaseUrl) {
-      setDebugError("Set NEXT_PUBLIC_API_BASE_URL before using debug controls.");
-      return;
-    }
+    if (!apiBaseUrl) { setDebugError("Set NEXT_PUBLIC_API_BASE_URL before using debug controls."); return; }
     setDebugPending(keyIndex);
     setDebugError("");
     try {
@@ -372,137 +345,163 @@ export default function ChatPage() {
     if (userMsg?.role === "user") void sendRequest(userMsg.content, msg.id);
   }
 
+  const userMessageCount = messages.filter((m) => m.role === "user").length;
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <main className="console-shell flex min-h-[100dvh] flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-[#0d1117]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-4 sm:px-7">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid size-9 shrink-0 place-items-center rounded-xl border border-sky-300/20 bg-sky-300/[0.09] text-sky-200">
-              <Command size={18} strokeWidth={1.8} />
+    <div className="app-shell">
+      {/* ── Header ── */}
+      <header className="app-header">
+        <div className="header-brand">
+          <div className="header-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h1 className="header-title">Resilient AI Chat</h1>
+              <span className="header-badge">LiteLLM</span>
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-slate-100">
-                  Resilient AI Chat
-                </h1>
-                <span className="hidden rounded-md border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:inline">
-                  LiteLLM
-                </span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <span
-                  className={`size-1.5 rounded-full ${apiBaseUrl ? "bg-emerald-400" : "bg-amber-400"}`}
-                  aria-hidden="true"
-                />
-                {apiBaseUrl ? "API connected" : "API base URL not configured"}
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, fontSize: 10, color: "var(--text-dim)" }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: apiBaseUrl ? "var(--emerald-bright)" : "var(--amber-bright)",
+                display: "inline-block"
+              }} />
+              {apiBaseUrl ? "API connected" : "API base URL not configured"}
             </div>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          {sessionId && (
+            <div className="session-chip" style={{ display: "none" }}>
+              <ShieldCheck size={11} />
+              <span>Session</span>
+              <span style={{ fontFamily: "var(--font-mono)" }}>{sessionId.slice(0, 8)}…</span>
+            </div>
+          )}
+          {/* Show session on wider screens via inline media style */}
+          <div className="session-chip" style={{ display: "flex" }}>
+            <span className="session-dot" />
+            <span style={{ fontFamily: "var(--font-mono)" }}>
+              {sessionId ? `${sessionId.slice(0, 8)}…` : "init…"}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-[11px] text-slate-500 md:flex">
-              <ShieldCheck size={14} className="text-slate-400" />
-              <span>Session</span>
-              <span className="font-mono text-slate-400">
-                {sessionId ? `${sessionId.slice(0, 8)}…` : "init…"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={startNewChat}
-              disabled={!sessionId || isResetting || isSending}
-              id="new-chat-btn"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.1] bg-white/[0.045] px-3 text-xs font-medium text-slate-200 transition hover:border-white/[0.16] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isResetting ? <LoaderCircle size={14} className="animate-spin" /> : <SquarePen size={14} />}
-              <span className="hidden sm:inline">{isResetting ? "Starting…" : "New chat"}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={startNewChat}
+            disabled={!sessionId || isResetting || isSending}
+            id="new-chat-btn"
+            className="btn-ghost"
+          >
+            {isResetting
+              ? <LoaderCircle size={14} className="animate-spin" />
+              : <SquarePen size={14} />}
+            <span>{isResetting ? "Starting…" : "New chat"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSidebarMobileOpen((o) => !o)}
+            id="toggle-sidebar-btn"
+            className="btn-ghost sidebar-toggle-btn"
+            aria-label="Toggle settings and debug panels"
+          >
+            <Settings2 size={14} />
+            <span>{sidebarMobileOpen ? "Close" : "Panels"}</span>
+          </button>
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-5 px-4 py-5 sm:px-7 sm:py-7 lg:grid-cols-[minmax(0,1fr)_282px] lg:gap-6">
-        {/* Main chat panel */}
-        <section className="flex min-h-[calc(100svh-126px)] flex-col overflow-hidden rounded-2xl border border-white/[0.075] bg-[#101720]/90 shadow-[0_20px_80px_rgba(0,0,0,0.16)] lg:min-h-[calc(100svh-128px)]">
-          <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/[0.065] px-5 sm:px-7">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <MessageSquare size={15} className="text-sky-300/80" />
+      {/* ── Two-column content ── */}
+      <div className="content-grid">
+        {sidebarMobileOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setSidebarMobileOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* ── LEFT: Chat panel (fixed height, internal scroll) ── */}
+        <section className="chat-panel" style={{ position: "relative" }}>
+
+          {/* Chat top bar */}
+          <div className="chat-topbar">
+            <div className="chat-topbar-left">
+              <MessageSquare size={15} color="var(--violet)" />
               <span>Conversation</span>
-              {messages.length > 0 && (
-                <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
-                  {messages.filter((m) => m.role === "user").length}
-                </span>
+              {userMessageCount > 0 && (
+                <span className="chat-count-pill">{userMessageCount}</span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
-              <span className="font-mono">POST</span>
-              <span className="rounded border border-white/[0.07] px-1.5 py-0.5 font-mono text-slate-500">/chat</span>
+            <div className="chat-topbar-right">
+              <span className="method-pill">POST</span>
+              <span>/chat</span>
             </div>
           </div>
 
-          {/* Notice bar */}
+          {/* Notice bars (shrink, not scroll) */}
           {notice && (
-            <div className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-rose-300/15 bg-rose-400/[0.07] px-3.5 py-3 text-xs text-rose-200 sm:mx-7">
-              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+            <div className="notice-bar error">
+              <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>{notice}</span>
-              <button type="button" onClick={() => setNotice("")} className="ml-auto text-rose-200/65 hover:text-rose-100" aria-label="Dismiss">×</button>
+              <button className="dismiss-btn" onClick={() => setNotice("")} aria-label="Dismiss">×</button>
             </div>
           )}
-
-          {/* Cold-start notice */}
           {coldStartNotice && (
-            <div className="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-amber-300/15 bg-amber-400/[0.06] px-3.5 py-3 text-xs text-amber-200 sm:mx-7">
-              <Zap size={15} className="mt-0.5 shrink-0" />
+            <div className="notice-bar warn">
+              <Zap size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>Waking up the server — this can take up to a minute on free hosting…</span>
             </div>
           )}
 
-          {/* Messages area */}
+          {/* ── Scrollable message area ── */}
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="subtle-scrollbar relative flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-7"
+            className="chat-scroll"
           >
             {messages.length === 0 ? (
-              <div className="flex min-h-full flex-col items-center justify-center px-4 py-12 text-center">
-                <div className="relative mb-6">
-                  <div className="absolute -inset-4 rounded-full bg-sky-400/[0.07] blur-2xl" />
-                  <div className="relative grid size-[58px] place-items-center rounded-[18px] border border-sky-200/15 bg-gradient-to-br from-sky-300/[0.12] to-indigo-300/[0.08] text-sky-200 shadow-[0_8px_40px_rgba(56,137,212,0.1)]">
-                    <Sparkles size={24} strokeWidth={1.5} />
+              /* Empty state — always shows the chat panel with input */
+              <div className="empty-state">
+                <div className="empty-icon-wrap">
+                  <div className="empty-icon-glow" />
+                  <div className="empty-icon">
+                    <Sparkles size={26} strokeWidth={1.6} />
                   </div>
                 </div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200/70">Ready when you are</p>
-                <h2 className="max-w-lg text-balance text-2xl font-medium tracking-[-0.04em] text-slate-100 sm:text-[30px]">
-                  Send your first message.
-                </h2>
-                <p className="mt-3 max-w-[360px] text-sm leading-6 text-slate-500">
-                  Each reply shows resolution source, model, latency, token counts, and key info.
+
+                <p className="empty-label">Ready when you are</p>
+                <h2 className="empty-title">Send your first message</h2>
+                <p className="empty-sub">
+                  Each reply shows source, model, latency, tokens, and which key answered.
                 </p>
 
                 {!apiBaseUrl && (
-                  <div className="mt-6 flex max-w-md items-start gap-2.5 rounded-xl border border-amber-200/10 bg-amber-300/[0.045] px-4 py-3 text-left text-xs leading-5 text-amber-100/75">
-                    <CircleHelp size={15} className="mt-0.5 shrink-0 text-amber-200/70" />
+                  <div className="api-warn-box">
+                    <CircleHelp size={14} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span>
-                      Add <code className="font-mono text-amber-100">NEXT_PUBLIC_API_BASE_URL</code> to{" "}
-                      <code className="font-mono text-amber-100">frontend/.env</code> to connect your API.
+                      Add <code style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}>NEXT_PUBLIC_API_BASE_URL</code>{" "}
+                      to <code style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}>frontend/.env</code> to connect your API.
                     </span>
                   </div>
                 )}
 
-                {/* Example prompt chips */}
-                <div className="mt-8 flex flex-wrap justify-center gap-2">
+                <div className="example-chips">
                   {EXAMPLE_PROMPTS.map((prompt) => (
                     <button
                       key={prompt}
                       type="button"
                       onClick={() => submitMessage(prompt)}
                       disabled={isSending || !sessionId}
-                      className="rounded-full border border-white/[0.09] bg-white/[0.035] px-3.5 py-2 text-xs text-slate-400 transition hover:border-sky-300/20 hover:bg-sky-300/[0.06] hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="chip-btn"
                     >
                       {prompt}
                     </button>
@@ -510,43 +509,39 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex max-w-[780px] flex-col gap-7" aria-live="polite">
+              <div className="messages-list" aria-live="polite">
                 {messages.map((message) =>
                   message.role === "user" ? (
-                    <div key={message.id} className="flex justify-end gap-3">
-                      <div className="max-w-[min(84%,640px)] rounded-2xl rounded-br-md border border-sky-200/10 bg-[#1b344b] px-4 py-3.5 text-[14px] leading-6 text-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.1)]">
-                        <p className="whitespace-pre-wrap break-words">{message.content}</p>
-                      </div>
-                      <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.055] text-[10px] font-semibold text-slate-300">
-                        YOU
-                      </div>
+                    <div key={message.id} className="msg-user">
+                      <div className="user-bubble">{message.content}</div>
+                      <div className="user-avatar">YOU</div>
                     </div>
                   ) : (
-                    <div key={message.id} className="flex items-start gap-3">
-                      <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-sky-200/15 bg-sky-300/[0.09] text-sky-200">
+                    <div key={message.id} className="msg-ai">
+                      <div className="ai-avatar">
                         <Bot size={16} strokeWidth={1.7} />
                       </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="ai-body">
                         {message.status === "loading" ? (
-                          <div className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-3 text-xs text-slate-400">
-                            <LoaderCircle size={14} className="animate-spin text-sky-300" />
-                            Generating response
-                            <span className="loading-dots ml-0.5" aria-hidden="true">
+                          <div className="loading-bubble">
+                            <LoaderCircle size={14} className="animate-spin" color="var(--violet)" />
+                            <span>Generating response</span>
+                            <div className="loading-dots" aria-hidden="true">
                               <span /><span /><span />
-                            </span>
+                            </div>
                           </div>
                         ) : message.status === "error" ? (
-                          <div className="max-w-[640px] rounded-xl border border-rose-300/15 bg-rose-400/[0.055] px-4 py-3.5">
-                            <div className="flex items-start gap-2.5 text-[13px] leading-6 text-rose-100/90">
-                              <AlertCircle size={16} className="mt-1 shrink-0 text-rose-300" />
-                              <p className="whitespace-pre-wrap break-words">{message.error}</p>
+                          <div className="error-bubble">
+                            <div className="error-text">
+                              <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
+                              <p>{message.error}</p>
                             </div>
                             <button
                               type="button"
                               onClick={() => retryMessage(message)}
                               disabled={isSending}
                               id={`retry-${message.id}`}
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-rose-200/15 bg-rose-200/[0.05] px-2.5 py-1.5 text-[11px] font-medium text-rose-100 transition hover:bg-rose-200/[0.1] disabled:opacity-40"
+                              className="retry-btn"
                             >
                               <RotateCcw size={12} />
                               Retry
@@ -554,9 +549,7 @@ export default function ChatPage() {
                           </div>
                         ) : (
                           <>
-                            <div className="whitespace-pre-wrap break-words text-[14px] leading-[1.8] text-slate-200">
-                              {message.content}
-                            </div>
+                            <p className="ai-text">{message.content}</p>
                             <MetadataBar metadata={message.metadata} />
                           </>
                         )}
@@ -569,30 +562,28 @@ export default function ChatPage() {
             )}
           </div>
 
+          {/* Scroll-to-bottom button */}
           {showScrollButton && (
             <button
               type="button"
+              className="scroll-btn"
               onClick={() => endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" })}
-              className="absolute bottom-[132px] left-1/2 z-10 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-white/10 bg-[#202a35] text-slate-300 shadow-lg transition hover:bg-[#2b3948]"
               aria-label="Scroll to latest message"
             >
               <ArrowDown size={15} />
             </button>
           )}
 
-          {/* Composer */}
-          <div className="shrink-0 border-t border-white/[0.065] bg-[#101720]/95 px-4 pb-4 pt-3 sm:px-7 sm:pb-5">
-            <form
-              onSubmit={handleSubmit}
-              className="mx-auto flex max-w-[780px] items-end gap-2 rounded-xl border border-white/[0.1] bg-[#151e28] p-2 transition focus-within:border-sky-200/25 focus-within:ring-2 focus-within:ring-sky-300/[0.055]"
-            >
+          {/* ── Composer — always anchored to bottom ── */}
+          <div className="composer-wrap">
+            <form onSubmit={handleSubmit} className="composer-box">
               <textarea
                 ref={composerRef}
                 value={draft}
                 onChange={(e) => {
                   setDraft(e.target.value);
                   e.target.style.height = "auto";
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
                 }}
                 onKeyDown={handleComposerKeyDown}
                 placeholder="Write a message…"
@@ -600,222 +591,226 @@ export default function ChatPage() {
                 id="message-composer"
                 rows={1}
                 maxLength={4000}
-                className="max-h-[180px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-[10px] text-[13px] leading-5 text-slate-100 outline-none placeholder:text-slate-600"
+                className="composer-input"
               />
               <button
                 type="submit"
                 id="send-btn"
                 disabled={!draft.trim() || isSending || isResetting}
-                className="grid size-10 shrink-0 place-items-center rounded-lg bg-sky-300 text-[#0a1723] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-slate-600"
+                className="btn-send"
                 aria-label="Send message"
               >
-                {isSending ? <LoaderCircle size={16} className="animate-spin" /> : <Send size={15} className="-translate-x-px" />}
+                {isSending
+                  ? <LoaderCircle size={16} className="animate-spin" />
+                  : <Send size={15} style={{ transform: "translateX(-1px)" }} />}
               </button>
             </form>
-            <div className="mx-auto mt-2 flex max-w-[780px] items-center justify-between px-1 text-[10px] text-slate-600">
+            <div className="composer-footer">
               <span>Enter to send · Shift+Enter for new line</span>
               <span>{draft.length.toLocaleString()} / 4,000</span>
             </div>
           </div>
         </section>
 
-        {/* Sidebar */}
-        <aside className="flex flex-col gap-3">
-          {/* Settings panel */}
-          <CollapsiblePanel
-            title="Settings"
-            subtitle="System behavior"
-            icon={<Settings2 size={15} />}
-            open={settingsOpen}
-            onToggle={() => setSettingsOpen((o) => !o)}
-          >
-            <label htmlFor="system-prompt" className="mb-2 block text-[11px] font-medium text-slate-400">
-              System prompt
-            </label>
-            <textarea
-              id="system-prompt"
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="Set context or instructions for the assistant…"
-              rows={5}
-              className="subtle-scrollbar w-full resize-y rounded-lg border border-white/[0.08] bg-[#0c1219] px-3 py-2.5 text-xs leading-5 text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-sky-200/25 focus:ring-2 focus:ring-sky-300/[0.05]"
-            />
-            <p className="mt-2 text-[10px] leading-4 text-slate-600">Included with every message in this chat.</p>
-            <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3 text-[10px] text-slate-600">
-              <Code2 size={13} />
-              <span>Sent as</span>
-              <code className="rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-slate-400">system_prompt</code>
-            </div>
-          </CollapsiblePanel>
+        {/* ── RIGHT: Sidebar ── */}
+        <aside className={`sidebar ${sidebarMobileOpen ? "mobile-open" : ""}`}>
 
-          {/* Debug panel */}
-          <CollapsiblePanel
-            title="Debug controls"
-            subtitle="Simulate key failures"
-            icon={<Terminal size={15} />}
-            open={debugOpen}
-            onToggle={() => {
-              setDebugOpen((o) => !o);
-              setDebugError("");
-            }}
-            accent="amber"
-          >
-            <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200/[0.08] bg-amber-300/[0.035] px-3 py-2.5">
-              <Zap size={13} className="mt-0.5 shrink-0 text-amber-200/75" />
-              <p className="text-[10px] leading-4 text-slate-500">
-                Toggle a key OFF to simulate a 429/failure for that key and prove automatic failover. Send a{" "}
-                <strong className="text-slate-400">new message</strong> and watch <code className="font-mono text-xs">key_index_used</code> change.
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {(debugStatus?.key_states && debugStatus.key_states.length > 0
-                ? debugStatus.key_states
-                : [{ key_index: 1, simulated_down: false, usage_count: 0 }, { key_index: 2, simulated_down: false, usage_count: 0 }]
-              ).map((info) => {
-                const keyNum = info.key_index;
-                const isDown = info.simulated_down;
-                const usageCount = info.usage_count;
-                const busy = debugPending === keyNum;
-                return (
-                  <button
-                    key={keyNum}
-                    type="button"
-                    role="switch"
-                    aria-checked={isDown}
-                    aria-label={`Fail key ${keyNum}`}
-                    id={`fail-key-${keyNum}`}
-                    disabled={debugPending !== null}
-                    onClick={() => void toggleFailKey(keyNum, isDown)}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/[0.055] bg-white/[0.018] px-3 py-2.5 text-left transition hover:border-white/[0.1] hover:bg-white/[0.035] disabled:cursor-wait disabled:opacity-65"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <span className="grid size-6 place-items-center rounded-md border border-white/[0.07] bg-white/[0.035] font-mono text-[10px] text-slate-400">
-                        {keyNum}
-                      </span>
-                      <span className="text-xs text-slate-300">Key {keyNum}</span>
-                      {usageCount > 0 && (
-                        <span className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[9px] text-slate-600">
-                          {usageCount}×
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      className={`relative inline-flex h-[19px] w-[34px] items-center rounded-full border transition ${
-                        isDown ? "border-rose-300/30 bg-rose-300/20" : "border-white/[0.1] bg-[#0b1016]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute left-[2px] grid size-[13px] place-items-center rounded-full transition ${
-                          isDown ? "translate-x-[15px] bg-rose-200" : "bg-slate-500"
-                        }`}
-                      >
-                        {busy && <LoaderCircle size={8} className="animate-spin text-slate-900" />}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {debugError && (
-              <div role="alert" className="mt-3 rounded-lg border border-rose-300/15 bg-rose-300/[0.055] px-3 py-2.5 text-[11px] leading-5 text-rose-200/90">
-                {debugError}
+          {/* Settings panel */}
+          <div className={`panel-card ${settingsOpen ? "open" : ""}`}>
+            <button
+              type="button"
+              className="panel-header"
+              onClick={() => setSettingsOpen((o) => !o)}
+              aria-expanded={settingsOpen}
+              id="settings-accordion-btn"
+            >
+              <span className="panel-icon violet"><Settings2 size={16} /></span>
+              <span className="panel-label">
+                <span className="panel-title">Settings</span>
+                <span className="panel-sub">System behavior & prompt</span>
+              </span>
+              <ChevronDown size={16} className={`panel-chevron ${settingsOpen ? "open" : ""}`} />
+            </button>
+
+            {settingsOpen && (
+              <div className="panel-body">
+                <label htmlFor="system-prompt" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 2 }}>
+                  <span>System prompt</span>
+                  <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: 500 }}>Optional context</span>
+                </label>
+                <textarea
+                  id="system-prompt"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="Set role or instructions for the assistant (e.g., 'You are a concise expert engineer.')…"
+                  rows={4}
+                  className="panel-textarea"
+                />
+                <p className="panel-hint">Injected as system instructions with every message in this session.</p>
+                <div className="panel-code-tag">
+                  <Code2 size={12} />
+                  <span>Backend parameter:</span>
+                  <code style={{ background: "var(--bg-panel)", padding: "1px 6px", borderRadius: 4, color: "var(--indigo)", fontWeight: 600 }}>system_prompt</code>
+                </div>
               </div>
             )}
-            <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-3 text-[10px] text-slate-600">
-              <Code2 size={13} />
-              <span>POST</span>
-              <code className="truncate rounded bg-white/[0.05] px-1.5 py-0.5 font-mono text-slate-400">
-                /debug/fail-key/:n/:state
-              </code>
-            </div>
-          </CollapsiblePanel>
+          </div>
+
+          {/* Debug panel */}
+          <div className={`panel-card ${debugOpen ? "open" : ""}`}>
+            <button
+              type="button"
+              className="panel-header"
+              onClick={() => { setDebugOpen((o) => !o); setDebugError(""); }}
+              aria-expanded={debugOpen}
+              id="debug-accordion-btn"
+            >
+              <span className="panel-icon amber"><Terminal size={16} /></span>
+              <span className="panel-label">
+                <span className="panel-title">Debug controls</span>
+                <span className="panel-sub">Simulate key failures (429)</span>
+              </span>
+              <ChevronDown size={16} className={`panel-chevron ${debugOpen ? "open" : ""}`} />
+            </button>
+
+            {debugOpen && (
+              <div className="panel-body">
+                <div className="debug-tip">
+                  <Zap size={14} style={{ flexShrink: 0, marginTop: 1, color: "var(--amber-bright)" }} />
+                  <div>
+                    Toggle a key <strong>OFF</strong> to simulate a 429 quota exhaustion. Send a message to see LiteLLM automatically fail over to Key 2!
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {(debugStatus?.key_states && debugStatus.key_states.length > 0
+                    ? debugStatus.key_states
+                    : [
+                      { key_index: 1, simulated_down: false, usage_count: 0 },
+                      { key_index: 2, simulated_down: false, usage_count: 0 },
+                    ]
+                  ).map((info) => {
+                    const keyNum = info.key_index;
+                    const isDown = info.simulated_down;
+                    const usageCount = info.usage_count;
+                    const busy = debugPending === keyNum;
+                    return (
+                      <button
+                        key={keyNum}
+                        type="button"
+                        role="switch"
+                        aria-checked={!isDown}
+                        aria-label={`Toggle Key ${keyNum} state`}
+                        id={`fail-key-${keyNum}`}
+                        disabled={debugPending !== null}
+                        onClick={() => void toggleFailKey(keyNum, isDown)}
+                        className={`toggle-btn ${isDown ? "is-failed" : ""}`}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{
+                            width: 26, height: 26, display: "grid", placeItems: "center",
+                            borderRadius: 6,
+                            border: isDown ? "1.5px solid rgba(225,29,72,0.3)" : "1.5px solid rgba(5,150,105,0.3)",
+                            background: isDown ? "var(--rose-soft)" : "var(--emerald-soft)",
+                            fontFamily: "var(--font-mono)", fontSize: 11,
+                            color: isDown ? "var(--rose)" : "var(--emerald)", fontWeight: 700,
+                          }}>
+                            {keyNum}
+                          </span>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontWeight: 700, fontSize: 12 }}>Key #{keyNum}</span>
+                              {isDown ? (
+                                <span className="key-status-pill down">DOWN (429)</span>
+                              ) : (
+                                <span className="key-status-pill healthy">ACTIVE</span>
+                              )}
+                            </div>
+                            {usageCount > 0 && (
+                              <span style={{
+                                fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 700,
+                                padding: "1px 6px", borderRadius: 999,
+                                background: "var(--violet-soft)", color: "var(--violet)",
+                                border: "1px solid rgba(109,40,217,0.15)",
+                              }}>
+                                {usageCount} served
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`toggle-track ${isDown ? "is-down" : ""}`} title={isDown ? "Key is simulated down. Click to restore." : "Key is active. Click to simulate 429."}>
+                          <div className="toggle-thumb">
+                            {busy && <LoaderCircle size={9} className="animate-spin" color="#fff" />}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {debugError && (
+                  <div className="debug-error" role="alert">
+                    <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>{debugError}</span>
+                  </div>
+                )}
+
+                <div className="panel-code-tag">
+                  <Code2 size={12} />
+                  <span>Endpoint:</span>
+                  <code style={{ background: "var(--bg-panel)", padding: "1px 6px", borderRadius: 4, color: "var(--indigo)", fontSize: 10 }}>
+                    POST /debug/fail-key/:n/:state
+                  </code>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Metadata legend */}
-          <div className="mt-1 rounded-xl border border-white/[0.065] bg-[#101720]/80 px-4 py-3.5">
-            <div className="mb-2.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="legend-card">
+            <div className="card-title">
               <Database size={12} />
               Per-response metadata
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/15 bg-emerald-300/[0.06] px-2 py-1 text-[9px] text-emerald-200/90">
-                <span className="size-1 rounded-full bg-emerald-300" />
+            <div className="legend-badges">
+              <span className="meta-badge cache">
+                <span className="meta-dot cache" />
                 LLM_CACHE
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-300/15 bg-sky-300/[0.06] px-2 py-1 text-[9px] text-sky-200/90">
-                <span className="size-1 rounded-full bg-sky-300" />
+              <span className="meta-badge live">
+                <span className="meta-dot live" />
                 LIVE_INFERENCE
               </span>
             </div>
-            <p className="mt-2.5 text-[10px] leading-4 text-slate-600">
-              Source, model, latency, tokens, and key info shown beneath each reply.
+            <p className="legend-hint">
+              Source, model, latency, tokens, and key info shown below each reply.
             </p>
           </div>
 
           {/* Quick test guide */}
-          <div className="rounded-xl border border-white/[0.065] bg-[#101720]/80 px-4 py-3.5">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <div className="quick-guide">
+            <div className="card-title">
               <Key size={12} />
               Quick test guide
             </div>
-            <ol className="list-decimal space-y-1.5 pl-4 text-[10px] leading-4 text-slate-600">
-              <li>Send &quot;What is the capital of France?&quot; → <span className="text-sky-300/70">LIVE_INFERENCE</span></li>
-              <li>Click <strong className="text-slate-400">New chat</strong>, same message → <span className="text-emerald-300/70">LLM_CACHE</span> (lower latency)</li>
-              <li>Open Debug, toggle Key 1 off, new message → see key_index_used = 2</li>
-              <li>Toggle all keys off → friendly error bubble appears</li>
+            <ol className="guide-list">
+              {[
+                <>Send <em>&quot;What is the capital of France?&quot;</em> → <span style={{ color: "var(--cyan)", fontWeight: 600 }}>LIVE_INFERENCE</span></>,
+                <>Click <strong>New chat</strong>, same message → <span style={{ color: "var(--emerald)", fontWeight: 600 }}>LLM_CACHE</span> (lower latency)</>,
+                <>Open Debug, toggle Key 1 off, new message → see <code style={{ fontFamily: "var(--font-mono)", fontSize: 9 }}>key_index_used = 2</code></>,
+                <>Toggle all keys off → friendly error bubble, no crash</>,
+              ].map((step, i) => (
+                <li key={i} className="guide-step">
+                  <span className="guide-num">{i + 1}</span>
+                  <span>{step}</span>
+                </li>
+              ))}
             </ol>
           </div>
         </aside>
       </div>
-    </main>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// CollapsiblePanel component
-// ---------------------------------------------------------------------------
-
-function CollapsiblePanel({
-  title,
-  subtitle,
-  icon,
-  open,
-  onToggle,
-  accent = "sky",
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  accent?: "sky" | "amber";
-  children: React.ReactNode;
-}) {
-  const tone =
-    accent === "amber"
-      ? "border-amber-200/10 bg-amber-200/[0.055] text-amber-100/80"
-      : "border-sky-200/10 bg-sky-200/[0.055] text-sky-100/80";
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-white/[0.075] bg-[#101720]/85">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.025]"
-      >
-        <span className={`grid size-8 shrink-0 place-items-center rounded-lg border ${tone}`}>{icon}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-slate-200">{title}</span>
-          <span className="mt-0.5 block text-[10px] text-slate-500">{subtitle}</span>
-        </span>
-        <ChevronDown
-          size={15}
-          className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && <div className="border-t border-white/[0.06] px-4 pb-4 pt-3.5">{children}</div>}
-    </section>
+    </div>
   );
 }
 
@@ -838,46 +833,40 @@ function MetadataBar({ metadata }: { metadata?: MessageMetadata }) {
   const fallbacks = metadata?.fallback_attempts ?? 0;
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-white/[0.055] pt-2.5 text-[10px] text-slate-500">
-      {/* Resolution source badge */}
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium tracking-[0.035em] ${
-          cached
-            ? "border-emerald-300/15 bg-emerald-300/[0.055] text-emerald-200/90"
-            : "border-sky-300/15 bg-sky-300/[0.055] text-sky-200/90"
-        }`}
-      >
-        <span className={`size-1 rounded-full ${cached ? "bg-emerald-300" : "bg-sky-300"}`} aria-hidden="true" />
+    <div className="meta-bar">
+      {/* Resolution source */}
+      <span className={`meta-badge ${cached ? "cache" : "live"}`}>
+        <span className={`meta-dot ${cached ? "cache" : "live"}`} />
         {source}
       </span>
 
       {/* Model */}
-      <span className="max-w-[220px] truncate font-mono text-slate-400" title={model}>
+      <span className="meta-item" title={model} style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {model}
       </span>
 
       {/* Latency */}
-      <span className="inline-flex items-center gap-1">
-        <Clock3 size={11} />
+      <span className="meta-item">
+        <Clock3 size={10} />
         {latency} ms
       </span>
 
-      {/* Token usage — per request */}
-      <span className="font-mono text-slate-500">
+      {/* Token usage */}
+      <span className="meta-item">
         In: {inputTokens} | Out: {outputTokens}
       </span>
 
-      {/* Key info */}
+      {/* Key used */}
       {keyUsed !== null && (
-        <span className="inline-flex items-center gap-1 font-mono text-slate-600">
-          <Key size={10} />
+        <span className="meta-key-badge">
+          <Key size={9} />
           Key #{keyUsed}
         </span>
       )}
 
-      {/* Fallback count */}
+      {/* Fallbacks */}
       {fallbacks > 0 && (
-        <span className="rounded-md border border-amber-300/15 bg-amber-300/[0.05] px-1.5 py-0.5 text-amber-200/80">
+        <span className="meta-fallback-badge">
           {fallbacks} fallback{fallbacks > 1 ? "s" : ""}
         </span>
       )}
