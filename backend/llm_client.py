@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 # Keys that the debug endpoint has "turned off" (1-based indices)
 _simulated_down: Set[int] = set()
 
-# Per-key call counters (key index -> count)
-_key_usage_counts: Dict[int, int] = {i: 0 for i in range(1, 4)}
+# Per-key call counters (key index -> count, 2 keys)
+_key_usage_counts: Dict[int, int] = {1: 0, 2: 0}
 
 # The live router instance — rebuilt whenever debug state changes
 _router: Optional[Router] = None
@@ -52,24 +52,10 @@ _router: Optional[Router] = None
 
 
 def _setup_cache() -> None:
-    """
-    Initialise LiteLLM global cache.
-
-    If REDIS_URL is configured we use Redis; otherwise in-memory local cache.
-    The cache is set on litellm.cache (global) so it is shared across all
-    router instances, even after a rebuild, giving persistent cache hits.
-    """
+    """Initialise LiteLLM global in-memory local cache."""
     ttl = settings.CACHE_TTL_SECONDS
-    if settings.REDIS_URL:
-        logger.info("Using Redis cache at %s (TTL=%ds)", settings.REDIS_URL, ttl)
-        litellm.cache = Cache(
-            type="redis",
-            url=settings.REDIS_URL,
-            ttl=ttl,
-        )
-    else:
-        logger.info("Using in-memory local cache (TTL=%ds)", ttl)
-        litellm.cache = Cache(type="local", ttl=ttl)
+    logger.info("Using in-memory local cache (TTL=%ds)", ttl)
+    litellm.cache = Cache(type="local", ttl=ttl)
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +70,7 @@ def _build_router() -> Router:
     All deployments share model_name "chat-model" so the router
     treats them as a pool and retries across them on failure.
 
-    Deployment order is 1, 2, 3 — the router will prefer lower-order
+    Deployment order is 1, 2 — the router will prefer lower-order
     deployments.  When a key is in _simulated_down, its api_key is replaced
     with a sentinel string that will immediately fail, demonstrating failover.
     """
@@ -133,7 +119,7 @@ def _build_router() -> Router:
         cooldown_time=settings.COOLDOWN_TIME,
         # Use the global litellm.cache for response caching
         cache_responses=True,
-        # Prefer key-1, fall back to key-2, key-3 in order
+        # Prefer key-1, fall back to key-2 in order
         routing_strategy="simple-shuffle",
         # Short retry delay to keep fallover fast during tests
         retry_after=1,

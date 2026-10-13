@@ -39,9 +39,6 @@ class Settings:
     # ------------------------------------------------------------------ #
     # Caching
     # ------------------------------------------------------------------ #
-    REDIS_URL: str | None = os.getenv("REDIS_URL")
-    """Optional Redis URL.  If set, LiteLLM uses Redis cache; else in-memory."""
-
     CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
     """Time-to-live for cached LLM responses (seconds). Default 1 hour."""
 

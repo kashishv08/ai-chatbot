@@ -5,7 +5,6 @@ Run with a SINGLE worker because in-memory sessions and cache require it:
     uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
 
 All state (sessions, cache, debug flags) lives in-process.
-For multi-instance deployments switch to Redis + a DB session store.
 """
 
 from __future__ import annotations
@@ -61,7 +60,7 @@ async def lifespan(app: FastAPI):
         "Ready — %d key(s) loaded, model=%s, cache=%s",
         len(settings.GEMINI_API_KEYS),
         settings.MODEL_NAME,
-        "redis" if settings.REDIS_URL else "in-memory",
+        "in-memory",
     )
     yield
     logger.info("Shutting down.")

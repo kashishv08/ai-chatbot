@@ -2,8 +2,7 @@
 session_store.py - In-memory per-session conversation history.
 
 Uses an asyncio.Lock to protect the shared dict so concurrent requests
-for the same session_id don't race.  Because we run a single Uvicorn worker
-this is sufficient; for multi-worker deployments switch to Redis or a DB.
+for the same session_id don't race.
 """
 
 from __future__ import annotations
