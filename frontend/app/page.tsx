@@ -85,7 +85,7 @@ type DebugStatus = {
 
 const SESSION_ID_KEY = "chat-session-id";
 const MESSAGES_KEY = "chat-messages";
-const COLD_START_THRESHOLD_MS = 5000;
+const COLD_START_THRESHOLD_MS = 20000; // 20s: only triggers for genuine free-tier host sleep, never during failover
 
 const EXAMPLE_PROMPTS = [
   "What is the capital of France?",
@@ -223,7 +223,10 @@ export default function ChatPage() {
         )
       );
 
-      coldStartTimerRef.current = setTimeout(() => setColdStartNotice(true), COLD_START_THRESHOLD_MS);
+      const isLocalhost = !apiBaseUrl || apiBaseUrl.includes("localhost") || apiBaseUrl.includes("127.0.0.1");
+      if (!isLocalhost) {
+        coldStartTimerRef.current = setTimeout(() => setColdStartNotice(true), COLD_START_THRESHOLD_MS);
+      }
 
       try {
         if (!apiBaseUrl) throw new Error("Set NEXT_PUBLIC_API_BASE_URL in frontend/.env to connect to your API.");
@@ -733,7 +736,7 @@ export default function ChatPage() {
                                 background: "var(--violet-soft)", color: "var(--violet)",
                                 border: "1px solid rgba(109,40,217,0.15)",
                               }}>
-                                {usageCount} served
+                                {usageCount} live call{usageCount > 1 ? "s" : ""}
                               </span>
                             )}
                           </div>

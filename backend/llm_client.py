@@ -334,12 +334,12 @@ async def chat_completion(
     except (AttributeError, IndexError):
         return ChatResult(error="Received an empty response from the provider.", latency_ms=latency_ms)
 
-    # Track per-key usage
-    if key_index_used is not None:
-        increment_key_usage(key_index_used)
-
     # Resolution source
     resolution_source = "LLM_CACHE" if (is_cache_hit or hidden.get("cache_hit") is True) else "LIVE_INFERENCE"
+
+    # Track per-key usage — only for live inference calls that actually queried the upstream API key
+    if key_index_used is not None and resolution_source != "LLM_CACHE":
+        increment_key_usage(key_index_used)
 
     logger.info(
         "[session=%s] resolution=%s key=%s fallbacks=%d latency=%dms in=%d out=%d",
