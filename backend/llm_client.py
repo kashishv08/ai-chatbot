@@ -264,20 +264,59 @@ async def chat_completion(
 
     router = get_router()
 
+    # 1. Separate system prompt and conversation messages
+    system_msgs: List[Dict[str, str]] = [m for m in messages if m.get("role") == "system"]
+    conversation_msgs: List[Dict[str, str]] = [m for m in messages if m.get("role") != "system"]
+
+    # 2. Cap history sent to the model to the last MAX_HISTORY_MESSAGES (default 8)
+    max_history = settings.MAX_HISTORY_MESSAGES
+    if len(conversation_msgs) > max_history:
+        conversation_msgs = conversation_msgs[-max_history:]
+
+    # 3. Default system prompt: "Answer concisely." if none is provided
+    if not system_msgs and settings.DEFAULT_SYSTEM_PROMPT:
+        system_msgs = [{"role": "system", "content": settings.DEFAULT_SYSTEM_PROMPT}]
+
+    prepared_messages = system_msgs + conversation_msgs
+
     # Probe cache BEFORE the call so we can label the response correctly.
     # The router will still return the cached value (fast), but we know it
     # was a cache hit rather than live inference.
-    is_cache_hit = _check_cache_hit(messages)
+    is_cache_hit = _check_cache_hit(prepared_messages)
+
+    # Prepare acompletion arguments
+    acompletion_kwargs: Dict[str, Any] = {
+        "model": "chat-model",
+        "messages": prepared_messages,
+        "max_tokens": settings.MAX_OUTPUT_TOKENS,
+        # This flag tells LiteLLM's caching layer to check + store results.
+        # The router propagates it because cache_responses=True was set.
+        "caching": True,
+    }
+    if settings.REASONING_EFFORT:
+        acompletion_kwargs["reasoning_effort"] = settings.REASONING_EFFORT
+    elif "gemini" in settings.MODEL_NAME.lower():
+        # Zero thinking budget disables Gemini's internal reasoning tokens, saving ~100-200 tokens per call
+        acompletion_kwargs["thinking"] = {"budget_tokens": 0}
 
     start = time.perf_counter()
     try:
-        response = await router.acompletion(
-            model="chat-model",
-            messages=messages,
-            # This flag tells LiteLLM's caching layer to check + store results.
-            # The router propagates it because cache_responses=True was set.
-            caching=True,
-        )
+        try:
+            response = await router.acompletion(**acompletion_kwargs)
+        except Exception as inner_exc:
+            # Fallback: if reasoning_effort or thinking is rejected by LiteLLM or provider, retry without it
+            modified = False
+            for k in ("reasoning_effort", "thinking"):
+                if k in acompletion_kwargs and k in str(inner_exc).lower():
+                    acompletion_kwargs.pop(k, None)
+                    modified = True
+            if modified:
+                logger.warning(
+                    "LiteLLM/provider rejected reasoning parameter (%s); retrying without it", inner_exc
+                )
+                response = await router.acompletion(**acompletion_kwargs)
+            else:
+                raise inner_exc
     except litellm.RateLimitError as exc:
         logger.error("[session=%s] All keys rate-limited: %s", session_id, exc)
         return ChatResult(

@@ -251,6 +251,7 @@ export default function ChatPage() {
               : m
           )
         );
+        void fetchDebugStatus();
       } catch (error) {
         const msg = errorMessage(error);
         setMessages((cur) =>
@@ -266,7 +267,7 @@ export default function ChatPage() {
         if (coldStartTimerRef.current) clearTimeout(coldStartTimerRef.current);
       }
     },
-    [apiBaseUrl, sessionId, systemPrompt]
+    [apiBaseUrl, sessionId, systemPrompt, fetchDebugStatus]
   );
 
   const submitMessage = useCallback(

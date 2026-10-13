@@ -19,8 +19,8 @@ class Settings:
     # ------------------------------------------------------------------ #
     # LLM / Provider
     # ------------------------------------------------------------------ #
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini/gemini-3.5-flash")
-    """Gemini model to use via LiteLLM, e.g. gemini/gemini-3.5-flash."""
+    MODEL_NAME: str = os.getenv("MODEL_NAME", "gemini/gemini-3.1-flash-lite")
+    """Gemini model to use via LiteLLM, e.g. gemini/gemini-3.1-flash-lite."""
 
     # Collect whichever Gemini API keys are present in the environment (Key 1 & Key 2).
     GEMINI_API_KEYS: List[str] = [
@@ -42,11 +42,23 @@ class Settings:
     CACHE_TTL_SECONDS: int = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
     """Time-to-live for cached LLM responses (seconds). Default 1 hour."""
 
+    MAX_OUTPUT_TOKENS: int = int(os.getenv("MAX_OUTPUT_TOKENS", os.getenv("MAX_TOKENS", "300")))
+    """Maximum output tokens to generate per response (caps token burn and latency). Default 300."""
+
+    MAX_TOKENS: int = MAX_OUTPUT_TOKENS
+    """Backwards-compatible alias for MAX_OUTPUT_TOKENS."""
+
+    REASONING_EFFORT: str | None = os.getenv("REASONING_EFFORT") or None
+    """Optional reasoning effort ('low', 'medium', 'high'). Defaults to None for minimal token burn and fastest replies."""
+
+    DEFAULT_SYSTEM_PROMPT: str = os.getenv("DEFAULT_SYSTEM_PROMPT", "Answer concisely.")
+    """Default system prompt applied when no custom system prompt is provided."""
+
     # ------------------------------------------------------------------ #
     # Session
     # ------------------------------------------------------------------ #
-    MAX_HISTORY_MESSAGES: int = int(os.getenv("MAX_HISTORY_MESSAGES", "30"))
-    """Maximum number of messages (user + assistant) kept per session."""
+    MAX_HISTORY_MESSAGES: int = int(os.getenv("MAX_HISTORY_MESSAGES", "8"))
+    """Maximum number of messages (user + assistant) kept per session to avoid token bloat. Default 8."""
 
     # ------------------------------------------------------------------ #
     # Router / reliability
