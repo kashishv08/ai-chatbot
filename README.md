@@ -8,7 +8,7 @@ A production-grade, resilient conversational AI web application designed to with
 
 - **Backend**: Python 3.11+, FastAPI, LiteLLM (`litellm.Router`), Pydantic v2, Uvicorn
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
-- **AI Provider**: Google Gemini (`gemini/gemini-3.5-flash` by default, configurable via `MODEL_NAME`)
+- **AI Provider**: Google Gemini (`gemini/gemini-3.5-flash-lite` by default, configurable via `MODEL_NAME`)
 - **Key Failover Pool**: Automatic multi-key rotation and cooldown using `litellm.Router` across `GEMINI_API_KEY_1` and `GEMINI_API_KEY_2`.
 - **Response Caching**: LiteLLM dual caching with configurable TTL (`CACHE_TTL_SECONDS`), dramatically reducing latency and token costs on repeated identical prompts.
 - **Failover Simulation & Debug Tools**: Real-time simulated outage toggle for individual API keys (`/debug/fail-key/{index}/{on|off}`) to test and demonstrate graceful degradation live in the browser.
@@ -71,7 +71,7 @@ Edit `backend/.env`:
 ```env
 GEMINI_API_KEY_1=your_gemini_api_key_1
 GEMINI_API_KEY_2=your_gemini_api_key_2
-MODEL_NAME=gemini/gemini-3.5-flash
+MODEL_NAME=gemini/gemini-3.5-flash-lite
 ALLOWED_ORIGINS=*
 CACHE_TTL_SECONDS=3600
 ```
@@ -206,7 +206,7 @@ curl -X POST https://<your-backend-url>/debug/fail-key/1/off
 
 1. Send any message in the chat. Below the AI reply you will see:
    ```
-   LIVE_INFERENCE   gemini-3.5-flash   ⏱ 834 ms   In: 12 | Out: 341   Key #1
+   LIVE_INFERENCE   gemini-3.5-flash-lite   ⏱ 834 ms   In: 12 | Out: 341   Key #1
    ```
 2. The `In:` field is the **input token count for this specific request** (includes conversation history).
 3. The `Out:` field is the **output token count for this specific reply**.
